@@ -1,31 +1,17 @@
-/*
-========================================================
-سستم شحن وكالة مجلس القمة
-ملف تشغيل الواجهة
-========================================================
-
-المتطلبات:
-1. إكمال config.js.
-2. تنفيذ schema.sql في Supabase.
-3. إنشاء حسابات المستخدمين.
-4. إضافة صلاحيات الحسابات إلى profiles.
-
-تنبيه:
-هذا الملف لا يحتوي على كلمات مرور ثابتة.
-لا تضع كلمات مرور المدير داخل JavaScript.
-========================================================
-*/
+"use strict";
 
 const client = window.supabase.createClient(
   window.APP_CONFIG.SUPABASE_URL,
   window.APP_CONFIG.SUPABASE_ANON_KEY
 );
 
-const $ = (id) => document.getElementById(id);
+const $ = id => document.getElementById(id);
 
 let currentRole = null;
+let currentProfile = null;
 let wallets = [];
 let transactions = [];
+let ledgerRows = [];
 
 const currencyNames = {
   JOD: "دينار أردني",
@@ -41,173 +27,184 @@ const operationNames = {
   adjustment: "تسوية إدارية"
 };
 
-function numberFormat(value) {
-  return Number(value || 0).toLocaleString("en-US", {
+const formatNumber = value =>
+  Number(value || 0).toLocaleString("en-US", {
     maximumFractionDigits: 2
   });
+
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[c]);
+}
+
+function notify(message, type = "info") {
+  const box = $("systemNotice");
+  if (!box) {
+    alert(message);
+    return;
+  }
+
+  box.textContent = message;
+  box.dataset.type = type;
+  box.classList.remove("hidden");
+
+  clearTimeout(notify.timer);
+  notify.timer = setTimeout(() => {
+    box.classList.add("hidden");
+  }, 6000);
 }
 
 function showPage(pageId) {
   ["homePage", "loginPage", "dashboardPage"].forEach(id => {
     const element = $(id);
-
     if (element) {
       element.classList.toggle("hidden", id !== pageId);
     }
   });
 }
 
-function openLogin(role) {
-  if (!["manager", "staff"].includes(role)) {
-    return;
-  }
+window.showPage = showPage;
+
+window.openLogin = role => {
+  if (!["manager", "staff"].includes(role)) return;
 
   currentRole = role;
 
   $("loginForm").reset();
   $("loginError").textContent = "";
 
-  $("usernameLabel").classList.toggle(
-    "hidden",
-    role === "staff"
-  );
-
-  $("username").required = role !== "staff";
+  $("usernameLabel").classList.remove("hidden");
+  $("username").required = true;
+  $("username").disabled = false;
 
   $("loginTitle").textContent =
-    role === "manager"
-      ? "دخول مدير الموقع"
-      : "دخول مشرف الموقع";
+    role === "manager" ? "دخول المدير" : "دخول المشرف";
 
   $("loginDescription").textContent =
     role === "manager"
       ? "أدخل اسم المستخدم وكلمة المرور."
-      : "أدخل بيانات حساب المشرف.";
+      : "أدخل اسم المستخدم وكلمة مرور حساب المشرف.";
 
   showPage("loginPage");
+};
+
+function usernameToEmail(username) {
+  const value = username.trim();
+
+  if (value.includes("@")) return value;
+
+  const aliases = {
+    jor: "jor@alqimma.local",
+    f90: "f90@alqimma.local"
+  };
+
+  return aliases[value.toLowerCase()] || "";
 }
 
-window.openLogin = openLogin;
-window.showPage = showPage;
+async function getProfile(userId) {
+  const { data, error } = await client
+    .from("profiles")
+    .select("id,username,display_name,role,active")
+    .eq("id", userId)
+    .maybeSingle();
 
+  if (error) throw error;
+  if (!data || !data.active) {
+    throw new Error("الحساب غير موجود أو غير مفعّل.");
+  }
 
-// ======================================
-// تسجيل الدخول
-// ======================================
+  return data;
+}
 
-$("loginForm").addEventListener("submit", async event => {
+async function login(event) {
   event.preventDefault();
 
-  $("loginError").textContent = "";
+  const errorBox = $("loginError");
+  errorBox.textContent = "";
 
   const username = $("username").value.trim();
   const password = $("password").value;
-  const requestedRole = currentRole;
 
-  if (
-    !window.APP_CONFIG.SUPABASE_ANON_KEY ||
-    window.APP_CONFIG.SUPABASE_ANON_KEY.includes("ضع_المفتاح")
-  ) {
-    $("loginError").textContent =
-      "أضف مفتاح Supabase العام داخل config.js أولًا.";
-
+  if (!username || !password) {
+    errorBox.textContent = "أدخل اسم المستخدم وكلمة المرور.";
     return;
   }
 
-  const email = username === "jor"
-    ? "jor@alqimma.local"
-    : username === "f90"
-      ? "f90@alqimma.local"
-      : username;
+  const email = usernameToEmail(username);
+
+  if (!email) {
+    errorBox.textContent =
+      "اسم المستخدم غير مربوط ببريد حساب. استخدم البريد المسجل في Supabase Auth.";
+    return;
+  }
+
+  const submitButton =
+    $("loginForm").querySelector('button[type="submit"]');
+
+  submitButton.disabled = true;
 
   try {
-    const { data, error } =
-      await client.auth.signInWithPassword({
-        email,
-        password
-      });
+    const { data, error } = await client.auth.signInWithPassword({
+      email,
+      password
+    });
 
     if (error) throw error;
 
-    const { data: profile, error: profileError } =
-      await client
-        .from("profiles")
-        .select("role,display_name,active")
-        .eq("id", data.user.id)
-        .single();
+    const profile = await getProfile(data.user.id);
 
-    if (profileError) throw profileError;
-
-    if (
-      !profile ||
-      !profile.active ||
-      !["manager", "staff"].includes(profile.role)
-    ) {
+    if (profile.role !== currentRole) {
       await client.auth.signOut();
-
-      throw new Error("الحساب غير مفعّل أو لا يملك صلاحية صحيحة.");
+      throw new Error("هذا الحساب لا يملك صلاحية الدخول إلى هذه الصفحة.");
     }
 
-    if (
-      requestedRole === "manager" &&
-      profile.role !== "manager"
-    ) {
-      await client.auth.signOut();
-
-      throw new Error("هذا الحساب لا يملك صلاحية المدير.");
-    }
-
-    if (
-      requestedRole === "staff" &&
-      profile.role !== "staff"
-    ) {
-      await client.auth.signOut();
-
-      throw new Error("هذا الحساب ليس حساب مشرف.");
-    }
-
-    currentRole = profile.role;
-
-    $("dashboardTitle").textContent =
-      currentRole === "manager"
-        ? "لوحة مدير الموقع"
-        : "لوحة مشرف الموقع";
-
-    $("dashboardDescription").textContent =
-      "مرحبًا " + (profile.display_name || username);
-
-    $("managerPanel").classList.toggle(
-      "hidden",
-      currentRole !== "manager"
-    );
-
-    showPage("dashboardPage");
-
-    await loadDashboard();
-
+    await enterDashboard(profile);
   } catch (error) {
-    $("loginError").textContent =
+    errorBox.textContent =
       error.message || "تعذر تسجيل الدخول.";
+  } finally {
+    submitButton.disabled = false;
   }
-});
+}
 
+$("loginForm").addEventListener("submit", login);
 
-// ======================================
-// تحميل البيانات
-// ======================================
+async function enterDashboard(profile) {
+  currentProfile = profile;
+  currentRole = profile.role;
+
+  $("dashboardTitle").textContent =
+    currentRole === "manager"
+      ? "مركز إدارة وكالة مجلس القمة"
+      : "لوحة عمليات المشرف";
+
+  $("dashboardDescription").textContent =
+    `مرحبًا ${profile.display_name || profile.username || ""}`;
+
+  $("managerPanel").classList.toggle(
+    "hidden",
+    currentRole !== "manager"
+  );
+
+  document.body.dataset.role = currentRole;
+
+  showPage("dashboardPage");
+
+  await loadDashboard();
+}
 
 async function loadDashboard() {
   await Promise.all([
     loadWallets(),
     loadTransactions(),
-    loadSystemLedger()
+    loadLedger()
   ]);
 }
-
-
-// ======================================
-// تحميل المحافظ
-// ======================================
 
 async function loadWallets() {
   const { data, error } = await client
@@ -217,7 +214,7 @@ async function loadWallets() {
     .order("name");
 
   if (error) {
-    showNotice("تعذر تحميل المحافظ: " + error.message);
+    notify("تعذر تحميل المحافظ: " + error.message, "error");
     return;
   }
 
@@ -225,46 +222,33 @@ async function loadWallets() {
 
   $("walletCount").textContent = wallets.length;
 
+  const options = wallets.map(wallet => `
+    <option value="${escapeHTML(wallet.id)}">
+      ${escapeHTML(wallet.name)} — ${currencyNames[wallet.currency] || wallet.currency}
+    </option>
+  `).join("");
+
   $("operationWallet").innerHTML =
-    '<option value="">اختر المحفظة</option>' +
-    wallets.map(wallet => `
-      <option value="${wallet.id}">
-        ${escapeHTML(wallet.name)}
-        — ${currencyNames[wallet.currency] || wallet.currency}
-      </option>
-    `).join("");
+    '<option value="">اختر المحفظة</option>' + options;
 
-  renderWallets();
-}
+  $("adjustWalletId").innerHTML =
+    '<option value="">اختر المحفظة</option>' + options;
 
-
-// ======================================
-// عرض المحافظ
-// ======================================
-
-function renderWallets() {
   $("walletList").innerHTML = wallets.length
     ? wallets.map(wallet => `
       <article class="wallet-card">
+        <span class="wallet-currency">
+          ${escapeHTML(currencyNames[wallet.currency] || wallet.currency)}
+        </span>
         <strong>${escapeHTML(wallet.name)}</strong>
-
-        <p>
-          العملة:
-          ${currencyNames[wallet.currency] || wallet.currency}
-        </p>
-
-        <p>
-          الرصيد: ${numberFormat(wallet.balance)}
-        </p>
+        <p>الرصيد</p>
+        <h3>${formatNumber(wallet.balance)}</h3>
       </article>
     `).join("")
-    : "<p>لا توجد محافظ مضافة.</p>";
+    : '<p>لا توجد محافظ نشطة.</p>';
+
+  renderTransactions();
 }
-
-
-// ======================================
-// تحميل سجل العمليات
-// ======================================
 
 async function loadTransactions() {
   const { data, error } = await client
@@ -274,122 +258,75 @@ async function loadTransactions() {
     .limit(1000);
 
   if (error) {
-    showNotice("تعذر تحميل السجلات: " + error.message);
+    notify("تعذر تحميل العمليات: " + error.message, "error");
     return;
   }
 
   transactions = data || [];
-
   renderTransactions();
 }
-
-
-// ======================================
-// عرض سجل العمليات
-// ======================================
 
 function renderTransactions() {
   const from = $("dateFrom").value;
   const to = $("dateTo").value;
 
-  const filtered = transactions.filter(transaction => {
-    const date = new Date(transaction.created_at)
-      .toISOString()
-      .slice(0, 10);
-
-    return (!from || date >= from) &&
-           (!to || date <= to);
+  const filtered = transactions.filter(item => {
+    const date = String(item.created_at).slice(0, 10);
+    return (!from || date >= from) && (!to || date <= to);
   });
 
   $("transactionsTable").innerHTML = filtered.length
-    ? filtered.map(transaction => {
-      const wallet = wallets.find(
-        item => item.id === transaction.wallet_id
-      );
+    ? filtered.map(item => {
+        const wallet = wallets.find(w => w.id === item.wallet_id);
 
-      return `
-        <tr>
-          <td>
-            ${new Date(transaction.created_at)
-              .toLocaleString("ar")}
-          </td>
-
-          <td>
-            ${operationNames[transaction.operation_type]
-              || escapeHTML(transaction.operation_type)}
-          </td>
-
-          <td>${numberFormat(transaction.coins)}</td>
-
-          <td>${numberFormat(transaction.amount)}</td>
-
-          <td>
-            ${currencyNames[transaction.currency]
-              || escapeHTML(transaction.currency)}
-          </td>
-
-          <td>${escapeHTML(wallet?.name || "—")}</td>
-        </tr>
-      `;
-    }).join("")
-    : '<tr><td colspan="6">لا توجد عمليات.</td></tr>';
+        return `
+          <tr>
+            <td>${escapeHTML(new Date(item.created_at).toLocaleString("ar"))}</td>
+            <td>${escapeHTML(operationNames[item.operation_type] || item.operation_type)}</td>
+            <td>${formatNumber(item.coins)}</td>
+            <td>${formatNumber(item.amount)}</td>
+            <td>${escapeHTML(currencyNames[item.currency] || item.currency)}</td>
+            <td>${escapeHTML(wallet?.name || "—")}</td>
+            <td>${escapeHTML(item.notes || "—")}</td>
+          </tr>
+        `;
+      }).join("")
+    : '<tr><td colspan="7">لا توجد عمليات في الفترة المحددة.</td></tr>';
 }
 
-
-// ======================================
-// تحميل دفتر كوينز النظام
-// ======================================
-
-async function loadSystemLedger() {
+async function loadLedger() {
   const { data, error } = await client
     .from("system_ledger")
     .select("coins_in,coins_out,coins_balance")
     .order("id", { ascending: false })
-    .limit(1);
+    .limit(1000);
 
   if (error) {
-    showNotice("تعذر تحميل رصيد النظام: " + error.message);
+    notify("تعذر تحميل دفتر الكوينز: " + error.message, "error");
     return;
   }
 
-  const ledger = data?.[0];
+  ledgerRows = data || [];
+
+  const latest = ledgerRows[0];
 
   $("coinsBalance").textContent =
-    numberFormat(ledger?.coins_balance || 0);
+    formatNumber(latest?.coins_balance || 0);
 
-  const { data: allRows, error: totalsError } = await client
-    .from("system_ledger")
-    .select("coins_in,coins_out");
-
-  if (totalsError) {
-    showNotice("تعذر حساب إجماليات الكوينز.");
-    return;
-  }
-
-  $("coinsIn").textContent = numberFormat(
-    (allRows || []).reduce(
-      (sum, row) => sum + Number(row.coins_in || 0),
-      0
-    )
+  $("coinsIn").textContent = formatNumber(
+    ledgerRows.reduce((sum, row) => sum + Number(row.coins_in || 0), 0)
   );
 
-  $("coinsOut").textContent = numberFormat(
-    (allRows || []).reduce(
-      (sum, row) => sum + Number(row.coins_out || 0),
-      0
-    )
+  $("coinsOut").textContent = formatNumber(
+    ledgerRows.reduce((sum, row) => sum + Number(row.coins_out || 0), 0)
   );
 }
-
-
-// ======================================
-// تسجيل عملية جديدة
-// ======================================
 
 $("operationForm").addEventListener("submit", async event => {
   event.preventDefault();
 
-  $("operationMessage").textContent = "";
+  const message = $("operationMessage");
+  message.textContent = "";
 
   const operationType = $("operationType").value;
   const coins = Number($("operationCoins").value);
@@ -399,69 +336,53 @@ $("operationForm").addEventListener("submit", async event => {
   const notes = $("operationNotes").value.trim() || null;
 
   if (!Number.isSafeInteger(coins) || coins <= 0) {
-    $("operationMessage").textContent =
-      "أدخل عدد كوينز صحيحًا وموجبًا.";
+    message.textContent = "أدخل عدد كوينز صحيحًا وموجبًا.";
     return;
   }
 
   if (!Number.isFinite(amount) || amount < 0) {
-    $("operationMessage").textContent =
-      "المبلغ المدخل غير صحيح.";
+    message.textContent = "أدخل مبلغًا صحيحًا.";
     return;
   }
 
-  if (!walletId) {
-    $("operationMessage").textContent =
-      "اختر المحفظة أولًا.";
-    return;
-  }
-
-  const wallet = wallets.find(item => item.id === walletId);
+  const wallet = wallets.find(w => w.id === walletId);
 
   if (!wallet || wallet.currency !== currency) {
-    $("operationMessage").textContent =
-      "يجب أن تتطابق عملة العملية مع عملة المحفظة.";
+    message.textContent = "اختر محفظة مطابقة للعملة.";
     return;
   }
 
+  const button = event.submitter;
+  if (button) button.disabled = true;
+
   try {
-    const { error } = await client.rpc(
-      "record_transaction",
-      {
-        p_operation_type: operationType,
-        p_coins: coins,
-        p_amount: amount,
-        p_currency: currency,
-        p_wallet_id: walletId,
-        p_notes: notes
-      }
-    );
+    const { error } = await client.rpc("record_transaction", {
+      p_operation_type: operationType,
+      p_coins: coins,
+      p_amount: amount,
+      p_currency: currency,
+      p_wallet_id: walletId,
+      p_notes: notes
+    });
 
     if (error) throw error;
 
-    $("operationMessage").textContent =
-      "تم حفظ العملية وتحديث الأرصدة.";
-
+    message.textContent = "تم حفظ العملية بنجاح.";
     $("operationForm").reset();
 
     await loadDashboard();
-
   } catch (error) {
-    $("operationMessage").textContent =
-      "تعذر حفظ العملية: " + error.message;
+    message.textContent = "فشلت العملية: " + error.message;
+  } finally {
+    if (button) button.disabled = false;
   }
 });
-
-
-// ======================================
-// إضافة محفظة
-// ======================================
 
 $("walletForm").addEventListener("submit", async event => {
   event.preventDefault();
 
   if (currentRole !== "manager") {
-    showNotice("هذه العملية متاحة للمدير فقط.");
+    notify("هذه العملية للمدير فقط.", "error");
     return;
   }
 
@@ -470,29 +391,97 @@ $("walletForm").addEventListener("submit", async event => {
 
   if (!name) return;
 
-  const { error } = await client
-    .from("wallets")
-    .insert({
+  try {
+    const { error } = await client.from("wallets").insert({
       name,
       currency,
       balance: 0,
       active: true
     });
 
-  if (error) {
-    showNotice("تعذر إضافة المحفظة: " + error.message);
+    if (error) throw error;
+
+    $("walletForm").reset();
+    notify("تمت إضافة المحفظة بنجاح.", "success");
+    await loadWallets();
+  } catch (error) {
+    notify("تعذرت إضافة المحفظة: " + error.message, "error");
+  }
+});
+
+$("walletAdjustForm").addEventListener("submit", async event => {
+  event.preventDefault();
+
+  if (currentRole !== "manager") {
+    notify("هذه العملية للمدير فقط.", "error");
     return;
   }
 
-  $("walletForm").reset();
+  const walletId = $("adjustWalletId").value;
+  const amount = Number($("adjustWalletAmount").value);
+  const direction = $("adjustWalletDirection").value;
+  const reason = $("adjustWalletReason").value.trim();
 
-  await loadWallets();
+  if (!walletId || !Number.isFinite(amount) || amount <= 0 || !reason) {
+    notify("أكمل بيانات تعديل المحفظة بشكل صحيح.", "error");
+    return;
+  }
+
+  try {
+    const { error } = await client.rpc("adjust_wallet_balance", {
+      p_wallet_id: walletId,
+      p_amount: amount,
+      p_direction: direction,
+      p_reason: reason
+    });
+
+    if (error) throw error;
+
+    $("walletAdjustForm").reset();
+    notify("تم تعديل رصيد المحفظة وتسجيل الحركة.", "success");
+    await loadDashboard();
+  } catch (error) {
+    notify("تعذر تعديل المحفظة: " + error.message, "error");
+  }
 });
 
+$("systemCoinsForm").addEventListener("submit", async event => {
+  event.preventDefault();
 
-// ======================================
-// تصدير CSV
-// ======================================
+  if (currentRole !== "manager") {
+    notify("هذه العملية للمدير فقط.", "error");
+    return;
+  }
+
+  const coins = Number($("systemCoinsAmount").value);
+  const direction = $("systemCoinsDirection").value;
+  const reason = $("systemCoinsReason").value.trim();
+
+  if (!Number.isSafeInteger(coins) || coins <= 0 || !reason) {
+    notify("أدخل عدد كوينز صحيحًا وسبب التعديل.", "error");
+    return;
+  }
+
+  try {
+    const { error } = await client.rpc("adjust_system_coins", {
+      p_coins: coins,
+      p_direction: direction,
+      p_reason: reason
+    });
+
+    if (error) throw error;
+
+    $("systemCoinsForm").reset();
+    notify("تم تعديل كوينز النظام وتسجيل الحركة.", "success");
+    await loadLedger();
+  } catch (error) {
+    notify("تعذر تعديل كوينز النظام: " + error.message, "error");
+  }
+});
+
+$("filterButton").addEventListener("click", renderTransactions);
+
+$("refreshButton").addEventListener("click", loadDashboard);
 
 $("exportButton").addEventListener("click", () => {
   const headers = [
@@ -507,75 +496,36 @@ $("exportButton").addEventListener("click", () => {
 
   const rows = [
     headers.join(","),
-
-    ...transactions.map(transaction =>
-      headers.map(key => {
-        const value = String(transaction[key] ?? "")
-          .replace(/"/g, '""');
-
-        return `"${value}"`;
-      }).join(",")
+    ...transactions.map(item =>
+      headers.map(key =>
+        `"${String(item[key] ?? "").replace(/"/g, '""')}"`
+      ).join(",")
     )
   ];
 
-  const blob = new Blob(
-    ["\ufeff" + rows.join("\r\n")],
-    { type: "text/csv;charset=utf-8;" }
-  );
+  const blob = new Blob(["\ufeff" + rows.join("\r\n")], {
+    type: "text/csv;charset=utf-8;"
+  });
 
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
 
   link.href = url;
   link.download = "alqimma-transactions.csv";
-
-  document.body.appendChild(link);
   link.click();
-  link.remove();
 
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
-
-
-// ======================================
-// أدوات الواجهة
-// ======================================
-
-function escapeHTML(value) {
-  return String(value ?? "").replace(/[&<>"']/g, character => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  })[character]);
-}
-
-function showNotice(message) {
-  $("systemNotice").textContent = message;
-  $("systemNotice").classList.remove("hidden");
-}
-
-
-// ======================================
-// الأزرار
-// ======================================
-
-$("refreshButton").addEventListener(
-  "click",
-  loadDashboard
-);
-
-$("filterButton").addEventListener(
-  "click",
-  renderTransactions
-);
 
 $("logoutButton").addEventListener("click", async () => {
   await client.auth.signOut();
 
   currentRole = null;
+  currentProfile = null;
+  wallets = [];
+  transactions = [];
 
+  document.body.removeAttribute("data-role");
   showPage("homePage");
 });
 
@@ -584,9 +534,7 @@ $("themeToggle").addEventListener("click", () => {
 
   localStorage.setItem(
     "alqimma-theme",
-    document.body.classList.contains("dark")
-      ? "dark"
-      : "light"
+    document.body.classList.contains("dark") ? "dark" : "light"
   );
 });
 
@@ -596,52 +544,16 @@ if (localStorage.getItem("alqimma-theme") === "dark") {
 
 $("year").textContent = new Date().getFullYear();
 
+(async function restoreSession() {
+  try {
+    const { data, error } = await client.auth.getSession();
 
-// ======================================
-// استعادة جلسة دخول سابقة
-// ======================================
+    if (error || !data.session) return;
 
-(async () => {
-  const { data, error: sessionError } =
-    await client.auth.getSession();
-
-  if (sessionError || !data.session) {
-    return;
-  }
-
-  const { data: profile, error } = await client
-    .from("profiles")
-    .select("role,display_name,active")
-    .eq("id", data.session.user.id)
-    .single();
-
-  if (
-    !error &&
-    profile?.active &&
-    ["manager", "staff"].includes(profile.role)
-  ) {
-    currentRole = profile.role;
-
-    $("dashboardTitle").textContent =
-      currentRole === "manager"
-        ? "لوحة مدير الموقع"
-        : "لوحة مشرف الموقع";
-
-    $("dashboardDescription").textContent =
-      "مرحبًا " + (profile.display_name || "");
-
-    $("managerPanel").classList.toggle(
-      "hidden",
-      currentRole !== "manager"
-    );
-
-    showPage("dashboardPage");
-
-    await loadDashboard();
-
-  } else {
+    const profile = await getProfile(data.session.user.id);
+    await enterDashboard(profile);
+  } catch {
     await client.auth.signOut();
-    currentRole = null;
     showPage("homePage");
   }
 })();
