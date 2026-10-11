@@ -3,229 +3,125 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0e7490">
+  <meta name="theme-color" content="#080b18">
+  <meta name="description" content="نظام الشحن والإدارة المالية لوكالة مجلس القمة">
+  <title>وكالة مجلس القمة | نظام الشحن</title>
 
-  <title>سستم شحن وكالة مجلس القمة</title>
-
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 
-  <!-- مكتبة Supabase الرسمية -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
 <body>
-
 <header class="topbar">
-  <a class="brand" href="./">
+  <a class="brand" href="./" aria-label="الرئيسية">
     <span class="brand-icon">ق</span>
-    <span>
-      <strong>سستم شحن وكالة مجلس القمة</strong>
-      <small>إدارة الشحن والمحافظ والكوينز</small>
+    <span class="brand-copy">
+      <strong>وكالة مجلس القمة</strong>
+      <small>ALQIMMA FINANCIAL SYSTEM</small>
     </span>
   </a>
 
-  <button id="themeToggle" class="button button-light">
-    تغيير الثيم
+  <button id="themeToggle" class="button button-light" type="button">
+    ◐ الثيم
   </button>
 </header>
 
 <main class="container">
 
-  <!-- الصفحة الرئيسية -->
   <section id="homePage">
-
     <div class="hero">
-      <span class="eyebrow">ALQIMMA SHIPPING SYSTEM</span>
-
-      <h1>
-        نظامك المالي<br>
-        <span>بكل دقة ووضوح</span>
-      </h1>
-
-      <p>
-        إدارة عمليات الشحن وسحب التارجت ومكاسب الألعاب،
-        ومتابعة أرصدة المحافظ والكوينز من مكان واحد.
-      </p>
+      <span class="eyebrow">SECURE MANAGEMENT PLATFORM</span>
+      <h1>كل عملياتك المالية<br><span>في مركز واحد</span></h1>
+      <p>نظام إدارة الشحن والمحافظ والكوينز مع سجل عمليات واضح وصلاحيات منفصلة.</p>
+      <div class="hero-glow"></div>
     </div>
 
     <div class="access-grid">
-
       <article class="access-card">
         <div class="access-icon">↗</div>
-
         <span class="eyebrow">OPERATIONS</span>
-
-        <h2>مشرف الموقع</h2>
-
-        <p>
-          تسجيل العمليات اليومية ومراجعة السجلات
-          وفق الصلاحيات الممنوحة.
-        </p>
-
-        <button
-          class="button button-primary full"
-          onclick="openLogin('staff')">
-          دخول المشرف
-        </button>
+        <h2>دخول المشرف</h2>
+        <p>تسجيل الشحن وسحب التارجت ومكاسب الألعاب ومراجعة السجلات.</p>
+        <button class="button button-primary full" onclick="openLogin('staff')">دخول المشرف <span>←</span></button>
       </article>
 
       <article class="access-card">
         <div class="access-icon">♛</div>
-
-        <span class="eyebrow">CONTROL CENTER</span>
-
-        <h2>مدير الموقع</h2>
-
-        <p>
-          إدارة المحافظ والأرصدة والعمليات
-          والتقارير والإعدادات.
-        </p>
-
-        <button
-          class="button button-dark full"
-          onclick="openLogin('manager')">
-          دخول المدير
-        </button>
+        <span class="eyebrow">ADMIN CONTROL</span>
+        <h2>دخول المدير</h2>
+        <p>إدارة المحافظ والأرصدة وكوينز النظام ومتابعة العمليات.</p>
+        <button class="button button-dark full" onclick="openLogin('manager')">دخول المدير <span>←</span></button>
       </article>
-
     </div>
 
     <div class="developer">
-      <strong>تم تطوير هذا الموقع بواسطة أف تسعين | F90</strong>
-      <span>Instagram: @f90.xd</span>
-      <span>WhatsApp: +970568181910</span>
+      <strong>F90 × ALQIMMA</strong>
+      <span>نظام إدارة الشحن المالي</span>
+      <span>© <span id="year"></span></span>
     </div>
-
   </section>
 
-
-  <!-- صفحة تسجيل الدخول -->
   <section id="loginPage" class="hidden">
-
-    <button class="back-button" onclick="showPage('homePage')">
-      ← العودة للرئيسية
-    </button>
+    <button class="back-button" onclick="showPage('homePage')">← العودة للرئيسية</button>
 
     <div class="login-box">
-
-      <span class="eyebrow">SECURE ACCESS</span>
-
+      <div class="login-emblem">ق</div>
+      <span class="eyebrow">ENCRYPTED ACCESS</span>
       <h2 id="loginTitle">تسجيل الدخول</h2>
-
-      <p id="loginDescription">
-        أدخل بيانات الدخول للمتابعة.
-      </p>
+      <p id="loginDescription">أدخل بيانات حسابك للمتابعة.</p>
 
       <form id="loginForm">
-
         <label id="usernameLabel">
-          اسم المستخدم
-
-          <input
-            id="username"
-            type="text"
-            autocomplete="username"
-            placeholder="اسم المستخدم">
+          اسم المستخدم أو البريد الإلكتروني
+          <input id="username" type="text" autocomplete="username" required placeholder="اسم المستخدم أو البريد">
         </label>
 
         <label>
-          كلمة المرور أو الرمز
-
-          <input
-            id="password"
-            type="password"
-            autocomplete="current-password"
-            required
-            placeholder="أدخل كلمة المرور">
+          كلمة المرور
+          <input id="password" type="password" autocomplete="current-password" required placeholder="أدخل كلمة المرور">
         </label>
 
-        <button class="button button-primary full" type="submit">
-          تسجيل الدخول
-        </button>
-
-        <p id="loginError" class="error"></p>
-
+        <button class="button button-primary full" type="submit">تسجيل الدخول ←</button>
+        <p id="loginError" class="error" role="alert"></p>
       </form>
-
     </div>
-
   </section>
 
-
-  <!-- لوحة النظام -->
   <section id="dashboardPage" class="hidden">
-
     <div class="dashboard-header">
-
       <div>
-        <span class="eyebrow">DASHBOARD</span>
-
+        <span class="eyebrow">CONTROL CENTER</span>
         <h1 id="dashboardTitle">لوحة التحكم</h1>
-
-        <p id="dashboardDescription">
-          إدارة العمليات والأرصدة.
-        </p>
+        <p id="dashboardDescription">إدارة العمليات والأرصدة.</p>
       </div>
 
       <div class="dashboard-buttons">
-
-        <button id="refreshButton" class="button button-light">
-          تحديث البيانات
-        </button>
-
-        <button id="logoutButton" class="button button-danger">
-          تسجيل الخروج
-        </button>
-
+        <button id="refreshButton" class="button button-light">⟳ تحديث</button>
+        <button id="logoutButton" class="button button-danger">خروج</button>
       </div>
-
     </div>
 
+    <div id="systemNotice" class="notice hidden" role="status"></div>
 
-    <div id="systemNotice" class="notice hidden"></div>
-
-
-    <!-- الإحصائيات -->
     <div id="statistics" class="statistics-grid">
-
-      <article class="stat-card">
-        <span>رصيد كوينز النظام</span>
-        <strong id="coinsBalance">0</strong>
-      </article>
-
-      <article class="stat-card">
-        <span>الكوينز الداخلة</span>
-        <strong id="coinsIn">0</strong>
-      </article>
-
-      <article class="stat-card">
-        <span>الكوينز الخارجة</span>
-        <strong id="coinsOut">0</strong>
-      </article>
-
-      <article class="stat-card">
-        <span>المحافظ</span>
-        <strong id="walletCount">0</strong>
-      </article>
-
+      <article class="stat-card"><span>رصيد كوينز النظام</span><strong id="coinsBalance">0</strong><small>COINS BALANCE</small></article>
+      <article class="stat-card"><span>الكوينز الداخلة</span><strong id="coinsIn">0</strong><small>COINS IN</small></article>
+      <article class="stat-card"><span>الكوينز الخارجة</span><strong id="coinsOut">0</strong><small>COINS OUT</small></article>
+      <article class="stat-card"><span>المحافظ النشطة</span><strong id="walletCount">0</strong><small>ACTIVE WALLETS</small></article>
     </div>
 
-
-    <!-- تسجيل العمليات -->
     <section class="surface">
-
       <div class="section-heading">
-        <div>
-          <span class="eyebrow">NEW TRANSACTION</span>
-          <h2>تسجيل عملية جديدة</h2>
-        </div>
+        <div><span class="eyebrow">NEW TRANSACTION</span><h2>تسجيل عملية جديدة</h2></div>
+        <span class="section-badge">01</span>
       </div>
 
       <form id="operationForm" class="form-grid">
-
-        <label>
-          نوع العملية
-
+        <label>نوع العملية
           <select id="operationType" required>
             <option value="charge">شحن مستخدم</option>
             <option value="target">سحب تارجت</option>
@@ -233,208 +129,146 @@
           </select>
         </label>
 
-
-        <label>
-          قيمة الكوينز
-
-          <input
-            id="operationCoins"
-            type="number"
-            min="1"
-            step="1"
-            required
-            placeholder="مثال: 250000">
+        <label>عدد الكوينز
+          <input id="operationCoins" type="number" min="1" step="1" required placeholder="250000">
         </label>
 
-
-        <label>
-          المبلغ النقدي
-
-          <input
-            id="operationAmount"
-            type="number"
-            min="0"
-            step="0.01"
-            required
-            placeholder="أدخل المبلغ">
+        <label>المبلغ النقدي
+          <input id="operationAmount" type="number" min="0" step="0.01" required placeholder="0.00">
         </label>
 
-
-        <label>
-          العملة
-
+        <label>العملة
           <select id="operationCurrency" required>
-            <option value="JOD">دينار أردني</option>
-            <option value="USD">دولار أمريكي</option>
-            <option value="EGP">جنيه مصري</option>
-            <option value="TRY">ليرة تركية</option>
+            <option value="JOD">دينار أردني JOD</option>
+            <option value="USD">دولار أمريكي USD</option>
+            <option value="EGP">جنيه مصري EGP</option>
+            <option value="TRY">ليرة تركية TRY</option>
           </select>
         </label>
 
-
-        <label class="wide">
-          المحفظة المرتبطة بالعملية
-
-          <select id="operationWallet" required>
-            <option value="">اختر المحفظة</option>
-          </select>
+        <label class="wide">المحفظة
+          <select id="operationWallet" required><option value="">اختر المحفظة</option></select>
         </label>
 
-
-        <label class="wide">
-          ملاحظات اختيارية
-
-          <textarea
-            id="operationNotes"
-            rows="3"
-            placeholder="ملاحظات إن وجدت"></textarea>
+        <label class="wide">ملاحظات
+          <textarea id="operationNotes" rows="3" placeholder="ملاحظات اختيارية"></textarea>
         </label>
 
-
-        <button class="button button-primary wide" type="submit">
-          حفظ العملية وتحديث الأرصدة
-        </button>
-
-        <p id="operationMessage" class="wide"></p>
-
+        <button class="button button-primary wide" type="submit">حفظ العملية وتحديث الأرصدة</button>
+        <p id="operationMessage" class="wide form-message" role="status"></p>
       </form>
-
     </section>
 
-
-    <!-- سجل العمليات -->
-    <section class="surface">
-
-      <div class="section-heading">
-
-        <div>
-          <span class="eyebrow">TRANSACTION HISTORY</span>
-          <h2>سجل العمليات</h2>
-        </div>
-
-        <button id="exportButton" class="button button-light">
-          تصدير CSV
-        </button>
-
-      </div>
-
-
-      <div class="filters">
-
-        <label>
-          من تاريخ
-
-          <input id="dateFrom" type="date">
-        </label>
-
-        <label>
-          إلى تاريخ
-
-          <input id="dateTo" type="date">
-        </label>
-
-        <button id="filterButton" class="button button-light">
-          تطبيق
-        </button>
-
-      </div>
-
-
-      <div class="table-container">
-
-        <table>
-
-          <thead>
-            <tr>
-              <th>التاريخ والوقت</th>
-              <th>نوع العملية</th>
-              <th>الكوينز</th>
-              <th>المبلغ</th>
-              <th>العملة</th>
-              <th>المحفظة</th>
-            </tr>
-          </thead>
-
-          <tbody id="transactionsTable">
-
-            <tr>
-              <td colspan="6">لا توجد بيانات لعرضها.</td>
-            </tr>
-
-          </tbody>
-
-        </table>
-
-      </div>
-
-    </section>
-
-
-    <!-- أدوات المدير -->
     <section id="managerPanel" class="surface hidden">
-
       <div class="section-heading">
-        <div>
-          <span class="eyebrow">MANAGEMENT</span>
-          <h2>إدارة المحافظ</h2>
-        </div>
+        <div><span class="eyebrow">ADMIN TOOLS</span><h2>إدارة الأرصدة</h2></div>
+        <span class="section-badge">02</span>
       </div>
 
+      <div class="admin-grid">
+        <article class="admin-card">
+          <h3>تعديل رصيد محفظة</h3>
+          <p>إضافة أو خصم مبلغ مع تسجيل السبب في سجل التدقيق.</p>
+          <form id="walletAdjustForm">
+            <label>المحفظة
+              <select id="adjustWalletId" required><option value="">اختر المحفظة</option></select>
+            </label>
+            <label>الاتجاه
+              <select id="adjustWalletDirection" required>
+                <option value="add">إضافة رصيد</option>
+                <option value="subtract">خصم رصيد</option>
+              </select>
+            </label>
+            <label>المبلغ
+              <input id="adjustWalletAmount" type="number" min="0.01" step="0.01" required>
+            </label>
+            <label>سبب التعديل
+              <input id="adjustWalletReason" maxlength="250" required placeholder="سبب واضح للتعديل">
+            </label>
+            <button class="button button-primary full" type="submit">تنفيذ تعديل المحفظة</button>
+          </form>
+        </article>
+
+        <article class="admin-card">
+          <h3>تعديل كوينز النظام</h3>
+          <p>تعديل رصيد الكوينز من خلال الدالة الآمنة في قاعدة البيانات.</p>
+          <form id="systemCoinsForm">
+            <label>الاتجاه
+              <select id="systemCoinsDirection" required>
+                <option value="add">إضافة كوينز</option>
+                <option value="subtract">خصم كوينز</option>
+              </select>
+            </label>
+            <label>عدد الكوينز
+              <input id="systemCoinsAmount" type="number" min="1" step="1" required>
+            </label>
+            <label>سبب التعديل
+              <input id="systemCoinsReason" maxlength="250" required placeholder="سبب واضح للتعديل">
+            </label>
+            <button class="button button-primary full" type="submit">تنفيذ تعديل الكوينز</button>
+          </form>
+        </article>
+      </div>
+
+      <div class="section-heading wallet-heading">
+        <div><span class="eyebrow">WALLET MANAGEMENT</span><h2>إضافة محفظة جديدة</h2></div>
+      </div>
 
       <form id="walletForm" class="form-grid">
-
-        <label>
-          اسم المحفظة
-
-          <input
-            id="walletName"
-            type="text"
-            required
-            placeholder="مثال: محفظة لورد">
+        <label>اسم المحفظة
+          <input id="walletName" type="text" maxlength="100" required placeholder="اسم المحفظة">
         </label>
-
-
-        <label>
-          عملة المحفظة
-
-          <select id="walletCurrency">
-            <option value="JOD">دينار أردني</option>
-            <option value="USD">دولار أمريكي</option>
-            <option value="EGP">جنيه مصري</option>
-            <option value="TRY">ليرة تركية</option>
+        <label>العملة
+          <select id="walletCurrency" required>
+            <option value="JOD">دينار أردني JOD</option>
+            <option value="USD">دولار أمريكي USD</option>
+            <option value="EGP">جنيه مصري EGP</option>
+            <option value="TRY">ليرة تركية TRY</option>
           </select>
         </label>
-
-
-        <button class="button button-primary" type="submit">
-          إضافة محفظة
-        </button>
-
+        <button class="button button-primary wide" type="submit">＋ إضافة محفظة جديدة</button>
       </form>
 
-
       <div id="walletList" class="wallet-grid"></div>
-
     </section>
 
+    <section class="surface">
+      <div class="section-heading">
+        <div><span class="eyebrow">TRANSACTION HISTORY</span><h2>سجل العمليات</h2></div>
+        <button id="exportButton" class="button button-light">تصدير CSV</button>
+      </div>
 
-    <div class="developer footer-developer">
-      تم تطوير هذا الموقع بواسطة أف تسعين | F90
-    </div>
+      <div class="filters">
+        <label>من تاريخ<input id="dateFrom" type="date"></label>
+        <label>إلى تاريخ<input id="dateTo" type="date"></label>
+        <button id="filterButton" class="button button-light">تطبيق الفلتر</button>
+      </div>
 
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>التاريخ</th><th>العملية</th><th>الكوينز</th>
+              <th>المبلغ</th><th>العملة</th><th>المحفظة</th><th>ملاحظات</th>
+            </tr>
+          </thead>
+          <tbody id="transactionsTable">
+            <tr><td colspan="7">لا توجد بيانات.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="developer footer-developer">ALQIMMA × F90 · SECURE FINANCIAL SYSTEM</div>
   </section>
-
 </main>
 
+<footer>© <span id="footerYear"></span> وكالة مجلس القمة</footer>
 
-<footer>
-  © <span id="year"></span>
-  سستم شحن وكالة مجلس القمة
-</footer>
-
-
+<script>
+  document.getElementById("footerYear").textContent = new Date().getFullYear();
+</script>
 <script src="./config.js"></script>
 <script src="./app.js"></script>
-
 </body>
-      </html>
+</html>
